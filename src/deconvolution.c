@@ -70,12 +70,6 @@ long read_hf(char *fname)
  while(!feof(f))
   {
    fgetstr(f,s);
-   fgetstr(f,s);
-   fgetstr(f,s);
-   fgetstr(f,s);
-   fgetstr(f,s);
-
-   fgetstr(f,s);
    if(s==NULL) continue;
    sscanf(s,"%f,%f,%f,%f,%f",&t,&T,&hf,&h,&nh);
    tmax=t;flow[nf]=nh;tm[nf]=t;
