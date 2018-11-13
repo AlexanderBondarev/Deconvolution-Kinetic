@@ -46,15 +46,15 @@ long read_hf(char *fname)
    nf++;
   }
  fclose(f);
- printf("n=%ld   tmax=%f\n",nf,tmax);
+// printf("n=%ld   tmax=%f\n",nf,tmax);
  return nf;
 }
 
 double test_kinetic(double k1, double A01, double C01, double H1, double k2, double A02, double C02, double H2)
 {
- double m1, A1, C1, dC1, Hf1;
- double m2, A2, C2, dC2, Hf2;
- double t,dt,Hf;
+ double m1, A1, C1, dC1, P1;
+ double m2, A2, C2, dC2, P2;
+ double t,dt,Psum,dQ;
  double Q;
  long n;
 
@@ -70,20 +70,21 @@ double test_kinetic(double k1, double A01, double C01, double H1, double k2, dou
   {
     A1=A01-m1*(C1-C01);
     dC1=k1*(A01-m1*(C1-C01))*C1;
-    Hf1=H1*dC1/dt;
+    P1=-1000.0*H1*dC1/dt;
     A2=A02-m2*(C2-C02);
     dC2=k2*(A02-m2*(C2-C02))*C2;
-    Hf2=H2*dC2/dt;
-    Hf=Hf1+Hf2;
+    P2=-1000.0*H2*dC2/dt;
+    Psum=P1+P2;
 //    printf("%.1f, %f, %f, %f, %f, %f, %f, %f, %f, %f\n",t,dC1/dt,dC2/dt,A1,A2,C1,C2,Hf1,Hf2,Hf);
     C1+=dC1;
     C2+=dC2;
     if(t<tm[0]) continue;
-    Q+=pow(flow[n]-Hf,2);
+    dQ=flow[n]-Psum;
+    Q+=dQ*dQ;
 //    printf("t=%f %f\n",t,tm[n]);
     n++;
   }
- return Q/nf;
+ return Q/n;
 }
 
 double my_f (const gsl_vector *v, void *params) {
@@ -107,7 +108,7 @@ double my_f (const gsl_vector *v, void *params) {
 }
 
 void my_df (const gsl_vector *v, void *params, gsl_vector *df) {
-  double f0, f, dx;
+  double f0, f1, f2, dx;
   double *p = (double *)params;
   gsl_vector *vn;
   long i;
@@ -115,15 +116,17 @@ void my_df (const gsl_vector *v, void *params, gsl_vector *df) {
   vn = gsl_vector_alloc (Nx);
   for(i=0; i<Nx; i++) gsl_vector_set(vn, i, gsl_vector_get(v, i) );
   f0 = my_f(v, params);
-  printf("\n");
+//  printf("\n");
   for(i=0; i<Nx; i++) {
 //    dx = 0.001 + fabs( gsl_vector_get(v, i) )*0.01;
-    dx = fabs( gsl_vector_get(v, i) )*0.001;
+    dx = fabs( gsl_vector_get(v, i) )*0.00001;
 //    if(dx==0.0) dx=1e-8;
-    gsl_vector_set(vn, i, gsl_vector_get(v, i)+dx );
-    f = my_f(vn, params);
-    gsl_vector_set(df, i, (f-f0)/dx );
-    printf("df[%ld]=%e (%f + %f, %f) (%e, %e)\n", i, (f-f0)/dx, gsl_vector_get(v, i), dx, gsl_vector_get(vn, i), f, f0 );
+    gsl_vector_set(vn, i, gsl_vector_get(v, i)-dx/2 );
+    f1 = my_f(vn, params);
+    gsl_vector_set(vn, i, gsl_vector_get(v, i)+dx/2 );
+    f2 = my_f(vn, params);
+    gsl_vector_set(df, i, (f2-f1)/dx );
+//    printf("df[%ld]=%e (%f +- %f) (%e, %e)\n", i, (f2-f1)/dx, gsl_vector_get(v, i), dx, f2, f1 );
     gsl_vector_set(vn, i, gsl_vector_get(v, i) );
   }
   gsl_vector_free (vn);
@@ -170,11 +173,11 @@ int minimizer_BFGS (double *rx, double *par) {
   T = gsl_multimin_fdfminimizer_conjugate_fr;
   s = gsl_multimin_fdfminimizer_alloc (T, Nx);
 
-  gsl_multimin_fdfminimizer_set (s, &my_func, x, 0.00001, 1e-5);
+  gsl_multimin_fdfminimizer_set (s, &my_func, x, 0.0002, 1e-8);
 
-  printf ("*** %5d [", iter);
-  for(i=0;i<Nx;i++) printf (" %.7f", gsl_vector_get (s->x, i));
-  printf (" ] Q=%e\n", s->f);
+//  printf ("*** %5d [", iter);
+//  for(i=0;i<Nx;i++) printf (" %.9f", gsl_vector_get (s->x, i));
+//  printf (" ] Q=%e\n", s->f);
 
   do {
       iter++;
@@ -182,15 +185,20 @@ int minimizer_BFGS (double *rx, double *par) {
 
       if (status) break;
 
-      status = gsl_multimin_test_gradient (s->gradient, 1e-4);
+      status = gsl_multimin_test_gradient (s->gradient, 1e-9);
 
       if (status == GSL_SUCCESS) printf ("Minimum found at:\n");
 
-      printf ("*** %5d [", iter);
-      for(i=0;i<Nx;i++) printf (" %.7f", gsl_vector_get (s->x, i));
-      printf (" ] Q=%e\n", s->f);
+//      printf ("*** %5d [", iter);
+//      for(i=0;i<Nx;i++) printf (" %.9f", gsl_vector_get (s->x, i));
+//      printf (" ] Q=%e\n", s->f);
 
-  } while (status == GSL_CONTINUE && iter < 100);
+  } while (status == GSL_CONTINUE && iter < 10000);
+
+
+  printf ("*** %5d [", iter);
+  for(i=0;i<Nx;i++) printf (" %.9f", gsl_vector_get (s->x, i));
+  printf (" ] Q=%e\n", s->f);
 
   gsl_multimin_fdfminimizer_free (s);
   gsl_vector_free (x);
@@ -229,26 +237,3 @@ int main(int argc, char *argv[])
   rx[5]=H2avg;
   minimizer_BFGS(rx, par);
 }
-
-
-/*
-// printf("n=%ld  k1=%e  k2=%e  C01=%e  C02=%e  H1=%e  H2=%e\n",n,k1avg,k2avg,C01avg,C02avg,H1avg,H2avg);
- Qmin=test_kinetic(k1avg, 0.0035185, C01avg, -H1avg, k2avg, 0.0035185, C02avg, H2avg);
- k1opt=k1avg;k2opt=k2avg;C01opt=C01avg;C02opt=C02avg;H1opt=-H1avg;H2opt=H2avg;
- printf("Qavg=%e  k1=%e  k2=%e  C01=%e  C02=%e  H1=%e  H2=%e\n",Qmin,k1opt,k2opt,C01opt,C02opt,-H1opt,H2opt);
-
- for(k1=k1avg*0.0;k1<k1avg*2;k1+=2*k1avg/n)
-  for(k2=k2avg*0.0;k2<k2avg*2;k2+=2*k2avg/n)
-   for(C01=C01avg*0.0;C01<C01avg*2;C01+=2*C01avg/n)
-    for(C02=C02avg*0.0;C02<C02avg*2;C02+=2*C02avg/n)
-     for(H1=H1avg*0.0;H1<H1avg*2;H1+=2*H1avg/n)
-      for(H2=H2avg*0.0;H2<H2avg*2;H2+=2*H2avg/n)
-       {
-//      test_kinetic(double k1, double A01, double C01, double H1, double k2, double A02, double C02, double H2)
-        Q=test_kinetic(k1, 0.0035185, C01, -H1, k2, 0.0035185, C02, H2);
-        //printf("Q=%e  k1=%e  k2=%e  C01=%e  C02=%e  H1=%e  H2=%e\n",Qmin,k1,k2,C01,C02,-H1,H2);
-        if(Q<Qmin) {Qmin=Q;k1opt=k1;k2opt=k2;C01opt=C01;C02opt=C02;H1opt=-H1;H2opt=H2;printf("Qopt=%e  k1=%e  k2=%e  C01=%e  C02=%e  H1=%e  H2=%e\n",Qmin,k1opt,k2opt,C01opt,C02opt,-H1opt,H2opt);}
-//      printf("%e  %f  %f  %f  %f\n",Q,k1,k2,C01,C02);
-       }
- printf("Qopt=%e  k1=%e  k2=%e  C01=%e  C02=%e  H1=%e  H2=%e\n",Qmin,k1opt,k2opt,C01opt,C02opt,H1opt,H2opt);
-*/
