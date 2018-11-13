@@ -149,11 +149,16 @@ long rnd(long nmax) {return(rand()%nmax);}
 double frnd() {return(1.0*rnd(1000000L)/1000000L);}
 
 int minimizer_BFGS (double *rx, double *par) {
+  double Qmin,k1opt,k2opt,C01opt,C02opt,H1opt,H2opt;
   size_t iter = 0;
   int status;
-  long i;
+  long i,j;
 
   randomize();
+
+Qmin=1.0;
+for(j=0;j<100000L;j++) {
+
   const gsl_multimin_fdfminimizer_type *T;
   gsl_multimin_fdfminimizer *s;
 
@@ -167,15 +172,14 @@ int minimizer_BFGS (double *rx, double *par) {
   my_func.params = par;
 
   x = gsl_vector_alloc (Nx);
-  for(i=0;i<Nx;i++) gsl_vector_set (x, i, rx[i]*(1.25-0.5*frnd()) );
-//  for(i=0;i<Nx;i++) gsl_vector_set (x, i, rx[i]);
+
+  for(i=0;i<Nx;i++) gsl_vector_set (x, i, rx[i]*(1.50-1.0*frnd()) );
 
   T = gsl_multimin_fdfminimizer_conjugate_fr;
   s = gsl_multimin_fdfminimizer_alloc (T, Nx);
-
   gsl_multimin_fdfminimizer_set (s, &my_func, x, 0.0002, 1e-8);
 
-//  printf ("*** %5d [", iter);
+//  printf ("  * %5d [", iter);
 //  for(i=0;i<Nx;i++) printf (" %.9f", gsl_vector_get (s->x, i));
 //  printf (" ] Q=%e\n", s->f);
 
@@ -185,23 +189,40 @@ int minimizer_BFGS (double *rx, double *par) {
 
       if (status) break;
 
-      status = gsl_multimin_test_gradient (s->gradient, 1e-9);
+      status = gsl_multimin_test_gradient (s->gradient, 5e-9);
 
-      if (status == GSL_SUCCESS) printf ("Minimum found at:\n");
+      if (status == GSL_SUCCESS) printf (" Minimum found at:\n");
 
-//      printf ("*** %5d [", iter);
+//      printf ("  * %5d [", iter);
 //      for(i=0;i<Nx;i++) printf (" %.9f", gsl_vector_get (s->x, i));
 //      printf (" ] Q=%e\n", s->f);
 
-  } while (status == GSL_CONTINUE && iter < 10000);
+  } while (status == GSL_CONTINUE && iter < 5000);
 
+  if(s->f < Qmin) {
+    Qmin=s->f;
+    printf("*** Qmin=%e *** ",Qmin);
 
-  printf ("*** %5d [", iter);
-  for(i=0;i<Nx;i++) printf (" %.9f", gsl_vector_get (s->x, i));
-  printf (" ] Q=%e\n", s->f);
+    printf ("  * %5d [", iter);
+    for(i=0;i<Nx;i++) printf (" %.9f", gsl_vector_get (s->x, i));
+    printf (" ] Q=%e\n", s->f);
+
+    k1opt = gsl_vector_get(s->x, 0);
+    k2opt = gsl_vector_get(s->x, 1);
+    C01opt = gsl_vector_get(s->x, 2);
+    C02opt = gsl_vector_get(s->x, 3);
+    H1opt = gsl_vector_get(s->x, 4);
+    H2opt = gsl_vector_get(s->x, 5);
+
+    fflush(stdout);
+  }
 
   gsl_multimin_fdfminimizer_free (s);
   gsl_vector_free (x);
+
+}
+
+  printf("Qopt=%e  k1=%e  k2=%e  C01=%e  C02=%e  H1=%e  H2=%e\n",Qmin,k1opt,k2opt,C01opt,C02opt,H1opt,H2opt);
 
   return 0;
 }
