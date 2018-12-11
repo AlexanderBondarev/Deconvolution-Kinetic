@@ -18,9 +18,9 @@ plot(ff, type="h", xlab = "Freq", ylab = "Int", col="black", lwd=2)
 
 de <- 1.0 # sampling interval
 x.spec <- spectrum(f,log="no",span=10,plot=FALSE)
-x.spec
-spx <- x.spec$freq/de
-spy <- 2*x.spec$spec
+#x.spec
+spx <- x.spec$freq[1:50]/de
+spy <- 2*x.spec$spec[1:50]
 plot(spy~spx, xlab="frequency", ylab="spectral density", type="l")
 
 dev.off()
