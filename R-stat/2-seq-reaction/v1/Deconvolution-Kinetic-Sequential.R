@@ -11,7 +11,7 @@ p_C01 <- as.numeric(args[7])
 p_C02 <- as.numeric(args[8])
 td = read.table(paste0(fname, ".dat"), sep=",", head=TRUE)
 
-pdf(paste0(fname, "_Concurent.pdf"), family="NimbusSan", encoding="KOI8-R.enc")
+pdf(paste0(fname, "_Sequential.pdf"), family="NimbusSan", encoding="KOI8-R.enc")
 
 test_myf <- function(x, caption) {
  m1 <- 1.0
@@ -48,8 +48,13 @@ test_myf <- function(x, caption) {
     dC2 <- k2*(A02-m2*(C2-C02))*C2
     P2 <- -1000.0*H2*dC2/dt
     Psum <- P1+P2;
-    C1 <- C1 + dC1
-    C2 <- C2 + dC2
+#    C1 <- C1 + dC1
+#    C2 <- C2 + dC2
+    A1 <- A1 - dC1;
+    C1 <- C1 + (dC1-dC2);
+    C2 <- C2 + dC2;
+    A2 <- C1;
+
     if(t<tm[1]) { t <- t + dt; next }
     dQ <- flow[n]-Psum;
     mQ1[n] <- P1
@@ -61,8 +66,7 @@ test_myf <- function(x, caption) {
     t <- t + dt
   }
  print( sprintf("Quality: %d %f", n, Q/n ) )
- cap <- sprintf("%s (Quality: %.3e)", caption, Q/n )
- plot(td$Time/3600, td$Normalized_heat_flow, type="l", xlab = "t, h", ylab = "Normalized heat flow", col="black", main=cap, lwd=3)
+ plot(td$Time/3600, td$Normalized_heat_flow, type="l", xlab = "t, h", ylab = "Normalized heat flow", col="black", main=caption, lwd=3)
  lines(mt/3600, mQ1, col="blue", lwd=2)
  lines(mt/3600, mQ2, col="red", lwd=2)
  lines(mt/3600, mQ, col="green", lwd=2)
@@ -107,8 +111,12 @@ myf <- function(x) {
     dC2 <- k2*(A02-m2*(C2-C02))*C2
     P2 <- -1000.0*H2*dC2/dt
     Psum <- P1+P2;
-    C1 <- C1 + dC1
-    C2 <- C2 + dC2
+#    C1 <- C1 + dC1
+#    C2 <- C2 + dC2
+    A1 <- A1 - dC1;
+    C1 <- C1 + (dC1-dC2);
+    C2 <- C2 + dC2;
+    A2 <- C1;
     if(t<tm[1]) { t <- t + dt; next }
     dQ <- flow[n]-Psum;
     Q <- Q + dQ*dQ;
@@ -118,7 +126,9 @@ myf <- function(x) {
  return(Q/n)
 }
 
-krnd <- function(x) { runif(1, x-0.05*abs(x), x+0.05*abs(x)) }
+k <- 0.1
+
+krnd <- function(x) { runif(1, x-k*abs(x), x+k*abs(x)) }
 
 par0 <- c(p_k1, p_k2, p_C01, p_C02, p_dH1, p_dH2)
 
@@ -130,14 +140,14 @@ par0 <- c(p_k1, p_k2, p_C01, p_C02, p_dH1, p_dH2)
 #test_myf(c(0.65, 0.070, 0.0009, 0.0027, 40.0, -430.0))
 ###test_myf(r$par, "red")
 
-ControlPar <- list(trace=0, maxit=30000, eltol=1e-12)
+ControlPar <- list(trace=0, maxit=30000, eltol=1e-11)
 "Nelder-Mead Opt 30000"; r1 <- optim(sapply(par0, krnd), myf, control=ControlPar )
 "Result: "; r1$par
-test_myf(r1$par, "Nelder-Mead Opt")
+test_myf(r1$par, "Nelder-Mead Opt 30000")
 
 ControlPar <- list(trace=0, maxit=50000)
 "SANN Opt 50000"; r2 <- optim(sapply(par0, krnd), myf,  method = "SANN", control=ControlPar )
 "Result: "; r2$par
-test_myf(r2$par, "SANN Opt")
+test_myf(r2$par, "SANN Opt 50000")
 
 dev.off()

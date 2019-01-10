@@ -61,8 +61,7 @@ test_myf <- function(x, caption) {
     t <- t + dt
   }
  print( sprintf("Quality: %d %f", n, Q/n ) )
- cap <- sprintf("%s (Quality: %.3e)", caption, Q/n )
- plot(td$Time/3600, td$Normalized_heat_flow, type="l", xlab = "t, h", ylab = "Normalized heat flow", col="black", main=cap, lwd=3)
+ plot(td$Time/3600, td$Normalized_heat_flow, type="l", xlab = "t, h", ylab = "Normalized heat flow", col="black", main=caption, lwd=3)
  lines(mt/3600, mQ1, col="blue", lwd=2)
  lines(mt/3600, mQ2, col="red", lwd=2)
  lines(mt/3600, mQ, col="green", lwd=2)
@@ -118,7 +117,7 @@ myf <- function(x) {
  return(Q/n)
 }
 
-krnd <- function(x) { runif(1, x-0.05*abs(x), x+0.05*abs(x)) }
+krnd <- function(x) { runif(1, x-0.5*abs(x), x+0.5*abs(x)) }
 
 par0 <- c(p_k1, p_k2, p_C01, p_C02, p_dH1, p_dH2)
 
@@ -130,14 +129,14 @@ par0 <- c(p_k1, p_k2, p_C01, p_C02, p_dH1, p_dH2)
 #test_myf(c(0.65, 0.070, 0.0009, 0.0027, 40.0, -430.0))
 ###test_myf(r$par, "red")
 
-ControlPar <- list(trace=0, maxit=30000, eltol=1e-12)
+ControlPar <- list(trace=0, maxit=30000, eltol=1e-11)
 "Nelder-Mead Opt 30000"; r1 <- optim(sapply(par0, krnd), myf, control=ControlPar )
 "Result: "; r1$par
-test_myf(r1$par, "Nelder-Mead Opt")
+test_myf(r1$par, "Nelder-Mead Opt 30000")
 
 ControlPar <- list(trace=0, maxit=50000)
 "SANN Opt 50000"; r2 <- optim(sapply(par0, krnd), myf,  method = "SANN", control=ControlPar )
 "Result: "; r2$par
-test_myf(r2$par, "SANN Opt")
+test_myf(r2$par, "SANN Opt 50000")
 
 dev.off()
